@@ -1,8 +1,1 @@
-{
-  "mcpServers": {
-    "roblox": {
-      "command": "launch_studio_mcp.py",
-      "args": []
-    }
-  }
-}
+{"mcpServers":{"blender":{"args":["mcp-for-blender"],"command":"uvx"},"roblox":{"args":[],"command":"launch_studio_mcp.py"}}}

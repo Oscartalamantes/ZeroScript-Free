@@ -71,7 +71,10 @@ def _enable_ansi_colors():
         return False
 
 
-HOST = "127.0.0.1"
+# Patch #1 (Juno, 2026-10-19): bind host is env-configurable. Default stays
+# localhost-only; set ZS_BRIDGE_HOST=0.0.0.0 (or a Tailscale IP) before
+# start.bat to let a remote client (JunoClient over Tailscale) connect.
+HOST = os.environ.get("ZS_BRIDGE_HOST", "127.0.0.1")
 # Keep in sync with zeroscript-extension/manifest.json "version" - printed at
 # startup so a user's terminal output alone tells us which build they're on.
 BRIDGE_VERSION = "1.5.5"
