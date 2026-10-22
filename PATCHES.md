@@ -30,3 +30,8 @@ SECURITY (why the token is not optional): if the bridge listens on 0.0.0.0, anyo
 1. Laptop, extension pointed at 127.0.0.1 (regression — must behave like stock)
 2. Laptop, bridge on ZS_BRIDGE_HOST=0.0.0.0 + token, extension pointed at laptop LAN IP
 3. Phone (Quetta): load fork extension, set host = laptop LAN IP + token, start session
+
+## Patch #1 — COMPLETE (Juno, 2026-10-22)
+- bridge.py: ZS_BRIDGE_HOST (bind) + ZS_BRIDGE_TOKEN gate — sockets without ?t=<token> are closed (4401) before joining the client set when a token is set. Unset token = stock behavior.
+- Extension: background.js reads zsHost/zsPort/zsToken from chrome.storage on every connect (defaults = stock localhost); popup gained Bridge address fields (host/port/token) with save + reconnect; manifest host_permissions adds ws://100.*/* for the Tailscale range.
+- Purpose: let Juno reach this bridge over Tailscale with a token, so the laptop leg works without anyone relaying. Activation: pipeline job 010.

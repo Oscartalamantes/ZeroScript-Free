@@ -7,8 +7,18 @@
 // Contract with content.js: every sendMessage ALWAYS gets a response object,
 // even when the bridge is offline. The agentic loop must never hang waiting.
 
-const PORT = 17613;
-const URL = `ws://127.0.0.1:${PORT}`;
+// Patch #1 (extension half, Juno 2026-10-22): bridge address + token come
+// from chrome.storage (set in the popup), defaulting to the stock localhost
+// bridge. The token rides as ?t= and the bridge rejects a wrong one.
+let URL = "ws://127.0.0.1:17613";
+async function loadBridgeUrl() {
+  try {
+    const s = await chrome.storage.local.get(["zsHost", "zsPort", "zsToken"]);
+    const host = s.zsHost || "127.0.0.1";
+    const port = s.zsPort || 17613;
+    URL = `ws://${host}:${port}` + (s.zsToken ? `?t=${encodeURIComponent(s.zsToken)}` : "");
+  } catch (e) { /* keep the last/default URL */ }
+}
 
 // Chat sites where a ZeroScript provider content script runs. Status pushes go
 // to every tab matching these. Add the new provider's URL pattern here (and in
@@ -57,10 +67,11 @@ function log(...a) {
 }
 
 // ── WebSocket lifecycle ─────────────────────────────────────────────────
-function connect() {
+async function connect() {
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
     return;
   }
+  await loadBridgeUrl();
   clearTimeout(reconnectTimer);
   try {
     ws = new WebSocket(URL);

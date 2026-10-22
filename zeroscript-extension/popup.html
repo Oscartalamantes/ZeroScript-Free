@@ -25,6 +25,13 @@
     <div class="row" id="state">Bridge: …</div>
     <div class="row" id="tools"></div>
     <div class="row" id="servers" style="white-space:pre-line; font-family:ui-monospace,monospace; opacity:0.75"></div>
+    <div style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.12); padding-top:10px">
+      <div class="row" style="opacity:0.7">Bridge address (blank = this laptop)</div>
+      <input id="zsHost" placeholder="Host — e.g. 100.114.138.51" style="width:100%; box-sizing:border-box; margin:3px 0; padding:6px; border-radius:6px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.06); color:#e8e8ec; font-size:12px" />
+      <input id="zsPort" placeholder="Port — 17613" style="width:100%; box-sizing:border-box; margin:3px 0; padding:6px; border-radius:6px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.06); color:#e8e8ec; font-size:12px" />
+      <input id="zsToken" type="password" placeholder="Bridge token (if set)" style="width:100%; box-sizing:border-box; margin:3px 0; padding:6px; border-radius:6px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.06); color:#e8e8ec; font-size:12px" />
+      <button class="ghost" id="saveBridge">Save bridge address</button>
+    </div>
     <button class="ghost" id="reconnect">↻ Reconnect bridge</button>
     <button class="ghost" id="restart">⟳ Restart Roblox server</button>
     <button class="ghost" id="settings">⚙ Settings</button>

@@ -69,3 +69,24 @@ chrome.runtime.onMessage.addListener((msg) => {
 });
 refresh();
 setInterval(refresh, 2000);
+
+
+// Patch #1 (Juno, 2026-10-22): bridge host/port/token fields. Stored in
+// chrome.storage.local; background.js reads them on every connect.
+chrome.storage.local.get(["zsHost", "zsPort", "zsToken"], (s) => {
+  document.getElementById("zsHost").value = s.zsHost || "";
+  document.getElementById("zsPort").value = s.zsPort || "";
+  document.getElementById("zsToken").value = s.zsToken || "";
+});
+document.getElementById("saveBridge").addEventListener("click", (e) => {
+  const vals = {
+    zsHost: document.getElementById("zsHost").value.trim(),
+    zsPort: parseInt(document.getElementById("zsPort").value, 10) || 17613,
+    zsToken: document.getElementById("zsToken").value.trim(),
+  };
+  chrome.storage.local.set(vals, () => {
+    e.target.textContent = "Saved ✓ reconnecting…";
+    chrome.runtime.sendMessage({ type: "reconnect" }, () => setTimeout(refresh, 600));
+    setTimeout(() => { e.target.textContent = "Save bridge address"; }, 1800);
+  });
+});

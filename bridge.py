@@ -75,6 +75,11 @@ def _enable_ansi_colors():
 # localhost-only; set ZS_BRIDGE_HOST=0.0.0.0 (or a Tailscale IP) before
 # start.bat to let a remote client (JunoClient over Tailscale) connect.
 HOST = os.environ.get("ZS_BRIDGE_HOST", "127.0.0.1")
+# Patch #1 completed (Juno, 2026-10-22): optional shared-token gate. When
+# ZS_BRIDGE_TOKEN is set, the extension must connect with ?t=<token> or the
+# socket is closed before it can talk. Unset = stock behavior (no gate),
+# which is only safe while HOST stays on localhost.
+TOKEN = os.environ.get("ZS_BRIDGE_TOKEN", "")
 # Keep in sync with zeroscript-extension/manifest.json "version" - printed at
 # startup so a user's terminal output alone tells us which build they're on.
 BRIDGE_VERSION = "1.5.5"
@@ -1342,6 +1347,14 @@ async def broadcast_status():
 
 
 async def handler(ws):
+    # Patch #1 gate: with a token configured, reject any socket that did not
+    # present it as ?t=<token> — before it joins the client set or sees tools.
+    if TOKEN:
+        from urllib.parse import urlparse, parse_qs
+        _got = parse_qs(urlparse(getattr(ws.request, "path", "") or "").query).get("t", [""])[0]
+        if _got != TOKEN:
+            await ws.close(code=4401, reason="bad bridge token")
+            return
     peer = getattr(ws, "remote_address", ("?",))[0]
     clients.add(ws)
     log(f"extension connected  ({peer})  [{len(clients)} client(s)]", "gr")
