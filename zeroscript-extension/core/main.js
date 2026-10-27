@@ -262,6 +262,38 @@
   }
 
   async function submitAndGetBase(text, images) {
+    // JUNO PATCH 2026-10-24: hard size guard at the single choke point every
+    // injection passes through. Meta AI's composer cannot take very large
+    // one-shot messages (a ~30k result failed all 4 send attempts and killed
+    // the agent loop). Anything over the cap is split at paragraph
+    // boundaries (hard-sliced if a single block still exceeds it) and the
+    // parts are submitted back-to-back as one framed message. Normal traffic
+    // (bootstrap ~11.9k, tool results, reminders) never reaches the cap.
+    const ZS_SEND_CAP = 12500;
+    if (typeof text === "string" && text.length > ZS_SEND_CAP && !(images && images.length)) {
+      const parts = [];
+      let cur = "";
+      for (const ch of text.split("\n\n")) {
+        if (cur && cur.length + ch.length + 2 > ZS_SEND_CAP) { parts.push(cur); cur = ch; }
+        else cur = cur ? cur + "\n\n" + ch : ch;
+      }
+      if (cur) parts.push(cur);
+      const sliced = [];
+      for (const p of parts) {
+        if (p.length <= ZS_SEND_CAP) sliced.push(p);
+        else for (let n = 0; n < p.length; n += ZS_SEND_CAP) sliced.push(p.slice(n, n + ZS_SEND_CAP));
+      }
+      if (sliced.length > 1) {
+        diag("send.split", { len: text.length, parts: sliced.length });
+        let b;
+        for (let n = 0; n < sliced.length; n++) {
+          const framed = `(ZeroScript message, part ${n + 1} of ${sliced.length} - the parts arrive back-to-back and form ONE message; do not act until the final part.)\n\n` +
+            sliced[n] + (n === sliced.length - 1 ? "\n\n(End - all parts delivered.)" : "");
+          b = await submitAndGetBase(framed, null);
+        }
+        return b;
+      }
+    }
     captureSendToken();
     diag("send", { text: String(text).slice(0, 60), busy: P.isBusyNow() });
     A.injecting = true;

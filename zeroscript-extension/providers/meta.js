@@ -544,7 +544,23 @@ const ZSProvider = (() => {
     const editor = writeEl();
     if (!editor) throw new Error("Meta AI input box not found");
     editor.focus();
-    setTextareaValue(editor, text);
+    // JUNO PATCH 2026-10-24: progressive write for long texts. A single-shot
+    // set of a ~12k bootstrap made Lexical's mirror sync choke - the value
+    // never registered, the send button never enabled, and the core burned
+    // its 4 attempts ("did not accept the injected message"). Writing the
+    // value in growing slices with an input event + a frame per slice mimics
+    // a real paste and lets the editor keep up. Short texts keep the old path.
+    if (text && text.length > 3000) {
+      const SLICE = 1800;
+      for (let n = SLICE; ; n += SLICE) {
+        setTextareaValue(editor, text.slice(0, n));
+        await new Promise((r) => setTimeout(r, 45));
+        if (n >= text.length) break;
+      }
+      diag("meta.tas.progressive", { len: text.length });
+    } else {
+      setTextareaValue(editor, text);
+    }
     const sendReady = () => {
       const b = sendButton();
       return !!b && !b.disabled && b.getAttribute("aria-disabled") !== "true";
@@ -747,6 +763,10 @@ const ZSProvider = (() => {
   return {
     id: "meta",
     displayName: "Meta AI",
+    // JUNO PATCH 2026-10-24: cap what may ride on a single injection (used by
+    // core's system-prompt re-statement budget). Keeps combined payloads in
+    // the size class Meta AI's composer reliably accepts.
+    sendCharBudget: 12500,
     // Meta's composer accepts image uploads (hidden multi-file input → inline
     // Lexical preview → uploaded on send; see attachImages). Vision-capable, so
     // screen_capture is exposed (main.js BLOCKED_TOOLS gate). The send-with-image
