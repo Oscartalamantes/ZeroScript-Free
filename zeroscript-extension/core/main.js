@@ -971,42 +971,23 @@
       if (!scoped.length) {
         return `Output of '${name}':\nERROR: no server named "${requested}" is connected. Connected servers: ${[...known].join(", ") || "roblox"}. Call list_mcp_servers to check.`;
       }
-      const lines = scoped.map((t) => {
+      // JUNO PATCH 2026-10-27 (Oscar's order): no catalogue dump in chat.
+      // Even the compacted 2026-10-24 format pasted ~11.5k chars / 69 lines
+      // of command prose into EVERY chat that attached the agent - that is
+      // what filled the Meta AI history with junk "Checking commands" chats
+      // Oscar had to open one by one. The command set is static per bridge
+      // build, so list_commands now answers with ONE signature line per
+      // command (exact name + parameter keys, * = required) and no prose,
+      // no shared-params block, no usage notes. If the model gets a
+      // parameter wrong, the command's own ERROR names the fix (existing
+      // behaviour), and the periodic reminder re-anchors the exact names.
+      const sigLines = scoped.map((t) => {
         const props = (t.inputSchema && t.inputSchema.properties) || {};
         const req = new Set((t.inputSchema && t.inputSchema.required) || []);
-        // Two buckets: simple scalar params get packed onto ONE compact line;
-        // params that need real explanation (array-of-object shape, or a long
-        // description) keep their own line so nothing structurally important
-        // gets flattened away (that per-item shape is what fixed "Unknown …
-        // action: nil" bugs on user_keyboard_input/user_mouse_input).
-        const compact = [];
-        const detailed = [];
-        for (const [k, v] of Object.entries(props)) {
-          const items = v.items && typeof v.items === "object" ? v.items : null;
-          const itemProps = items && items.properties;
-          const mark = req.has(k) ? "" : "?";
-          if (v.type === "array" && itemProps) {
-            const itemReq = new Set(items.required || []);
-            const fields = Object.entries(itemProps).map(([ik, iv]) => {
-              const en = Array.isArray(iv.enum) && iv.enum.length <= 12 ? `(${iv.enum.join("|")})` : (iv.type || "any");
-              return `${ik}${itemReq.has(ik) ? "" : "?"}:${en}`;
-            });
-            detailed.push(`    ${k}${mark}: array [each item: {${fields.join(", ")}}]${v.description ? " - " + v.description : ""}`);
-          } else if (v.description && v.description.length > 45) {
-            detailed.push(`    ${k}${mark}: ${v.type || "any"} - ${v.description}`);
-          } else {
-            const ty = Array.isArray(v.enum) && v.enum.length <= 8 ? `(${v.enum.join("|")})` : (v.type || "any");
-            compact.push(`${k}${mark}:${ty}${v.description ? ` "${v.description}"` : ""}`);
-          }
-        }
-        const paramLines = [compact.length ? `    ${compact.join(", ")}` : "", ...detailed].filter(Boolean).join("\n");
-        // Tested usage note for the error-prone commands - kept full-length
-        // (these are validated fixes for real bugs, not filler).
-        const note = ZS.TOOL_NOTES[bareToolName(t.name)];
-        const noteStr = note ? `\n    ⚠ ${note}` : "";
-        return `${t.name}: ${(t.description || "").split("\n")[0]}${paramLines ? "\n" + paramLines : ""}${noteStr}`;
+        const keys = Object.keys(props).map((k) => k + (req.has(k) ? "*" : ""));
+        return keys.length ? `${t.name}(${keys.join(", ")})` : `${t.name}()`;
       });
-      return `Output of '${name}':\n${requested} commands (${scoped.length}):\n\n${lines.join("\n\n")}`;
+      return `Output of '${name}':\n${requested} commands (${scoped.length}) - compact reference (this is the complete list; there is no fuller version):\n${sigLines.join("\n")}\nCall each command by its exact name with the parameter keys shown (* = required). If a call fails, its ERROR names the parameter to fix.`;
     }
     if (A.toolNames.size && !A.toolNames.has(name)) {
       return ZS.FEEDBACK.unknownTool(name, [...A.toolNames]);
