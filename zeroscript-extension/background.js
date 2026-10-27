@@ -353,6 +353,24 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         sendResponse(r);
         break;
       }
+      case "fetch_catalogue": {
+        // JUNO PATCH 2026-10-27 (Oscar's design): the ONE canonical catalogue
+        // pull. The worker fetches the single catalogue file from the
+        // ZeroScript-Free repo (host_permissions covers raw.githubusercontent
+        // .com); core/main.js hands the text to the agent exactly once per
+        // session as the first list_commands result.
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 20000);
+          const resp = await fetch(msg.url, { signal: ctrl.signal, cache: "no-store" });
+          clearTimeout(timer);
+          if (!resp.ok) sendResponse({ ok: false, error: "HTTP " + resp.status });
+          else sendResponse({ ok: true, text: await resp.text() });
+        } catch (e) {
+          sendResponse({ ok: false, error: String((e && e.message) || e) });
+        }
+        break;
+      }
       case "reconnect":
         reconnectDelay = RECONNECT_MIN;
         connect();

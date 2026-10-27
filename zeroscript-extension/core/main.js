@@ -922,6 +922,34 @@
     return A.toolList;
   }
 
+  // JUNO PATCH 2026-10-27 (Oscar's design): the ONE canonical catalogue pull.
+  // The full command catalogue lives in a single file in the repo
+  // (catalogue/COMMANDS.md, Oscartalamantes/ZeroScript-Free). At session start
+  // the extension fetches that ONE file through the background worker and the
+  // session's FIRST list_commands hands it to the model as a single result -
+  // one pull, one chat. The promise/text are cached on A, so every later
+  // list_commands returns only a short confirmation (see the handler below):
+  // the catalogue is never formatted into the chat again, and nothing ever
+  // fragments across history chats the way the old dump did.
+  const CATALOGUE_URL =
+    "https://raw.githubusercontent.com/Oscartalamantes/ZeroScript-Free/master/catalogue/COMMANDS.md";
+  function pullCatalogue() {
+    if (A._catPromise) return A._catPromise;
+    A._catPromise = (async () => {
+      const r = await bg({ type: "fetch_catalogue", url: CATALOGUE_URL });
+      if (r && r.ok && typeof r.text === "string" && r.text.length) {
+        A._catText = r.text;
+        A._catState = "ok";
+      } else {
+        A._catState = "fail";
+        A._catError = (r && r.error) || "no response from the extension worker";
+      }
+      diag("catalogue.pull", { state: A._catState, chars: (A._catText || "").length });
+      return A._catState;
+    })();
+    return A._catPromise;
+  }
+
   async function runTool(call) {
     const name = call.tool;
     const args = call.arguments || {};
@@ -1003,23 +1031,23 @@
       if (!scoped.length) {
         return `Output of '${name}':\nERROR: no server named "${requested}" is connected. Connected servers: ${[...known].join(", ") || "roblox"}. Call list_mcp_servers to check.`;
       }
-      // JUNO PATCH 2026-10-27 (Oscar's order): no catalogue dump in chat.
-      // Even the compacted 2026-10-24 format pasted ~11.5k chars / 69 lines
-      // of command prose into EVERY chat that attached the agent - that is
-      // what filled the Meta AI history with junk "Checking commands" chats
-      // Oscar had to open one by one. The command set is static per bridge
-      // build, so list_commands now answers with ONE signature line per
-      // command (exact name + parameter keys, * = required) and no prose,
-      // no shared-params block, no usage notes. If the model gets a
-      // parameter wrong, the command's own ERROR names the fix (existing
-      // behaviour), and the periodic reminder re-anchors the exact names.
-      const sigLines = scoped.map((t) => {
-        const props = (t.inputSchema && t.inputSchema.properties) || {};
-        const req = new Set((t.inputSchema && t.inputSchema.required) || []);
-        const keys = Object.keys(props).map((k) => k + (req.has(k) ? "*" : ""));
-        return keys.length ? `${t.name}(${keys.join(", ")})` : `${t.name}()`;
-      });
-      return `Output of '${name}':\n${requested} commands (${scoped.length}) - compact reference (this is the complete list; there is no fuller version):\n${sigLines.join("\n")}\nCall each command by its exact name with the parameter keys shown (* = required). If a call fails, its ERROR names the parameter to fix.`;
+      // JUNO PATCH 2026-10-27 (Oscar's design - supersedes the 2026-10-24
+      // compact format AND this morning's signature-only format): this
+      // handler NEVER formats the catalogue into the chat. The session's
+      // first list_commands returns the ONE canonical file (catalogue/
+      // COMMANDS.md in the repo), pulled once through pullCatalogue() -
+      // a single pull in a single chat. Every later call returns only a
+      // confirmation stub; the model answers from the pulled file. A
+      // failed pull returns an explicit ERROR - there is NO silent
+      // fallback to any locally formatted dump.
+      if (!A._catText) {
+        const st = await pullCatalogue();
+        if (st !== "ok") {
+          return `Output of '${name}':\nERROR: the canonical command catalogue could not be pulled from the ZeroScript-Free repo (${A._catError || "fetch failed"}), so NO command reference was loaded. Do not guess command names or parameters. Tell the user in one short sentence that the catalogue pull failed, then stop.`;
+        }
+        return `Output of '${name}':\n(ZeroScript catalogue pull - the ONE canonical file, catalogue/COMMANDS.md from the ZeroScript-Free repo, pulled once for this whole session. Read it fully: it is your complete command reference. It will NOT be sent again; later list_commands calls return only a confirmation.)\n\n${A._catText}`;
+      }
+      return `Output of '${name}':\nThe full command catalogue was already pulled ONCE this session from catalogue/COMMANDS.md (ZeroScript-Free repo) and is in your context above. It is never re-sent. Answer from it - ${A.toolList.length} commands across the connected servers. If a parameter is uncertain, run the command and trust its ERROR to name the fix.`;
     }
     if (A.toolNames.size && !A.toolNames.has(name)) {
       return ZS.FEEDBACK.unknownTool(name, [...A.toolNames]);
@@ -1847,6 +1875,10 @@
       await ensureTools(true); // boot: always take a fresh catalogue (the TTL then
                                // covers the list_commands / list_mcp_servers calls
                                // the model makes seconds later)
+      pullCatalogue(); // JUNO PATCH 2026-10-27: fire the ONE catalogue fetch now so
+                       // it overlaps the bootstrap turn; the model's first
+                       // list_commands awaits this same promise and hands the
+                       // pulled file over as a single result.
       if (!alive()) return;
       if (!A.toolList.length) {
         ui.banner("warn", "Bridge or Studio offline",

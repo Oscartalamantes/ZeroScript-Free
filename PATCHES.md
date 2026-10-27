@@ -49,3 +49,24 @@ Change (core/main.js): the 2026-10-24 hard size guard transplanted verbatim into
 Change (providers/meta.js): now byte-identical to the vault build — progressive write for texts >3000 chars (1800-char slices with an input event per slice) and sendCharBudget: 12500.
 Cleanup: committed .bak-20261027-listcmd backups removed from the repo (backups belong on the laptop beside live files, not in source).
 Deployment: all laptop extension copies purged to C:\Users\Etern\zeroscript-purge-archive-20261027\ except the Edge-registered copy, which is deployed byte-identical to this commit. The vault (~/workspace/zeroscript-fix-vault) is retired as an input — this repo is the single source of truth.
+
+## Patch #4 - 2026-10-27 (Juno, Oscar's design): ONE canonical catalogue file, pulled once
+
+Oscar's design, replacing the dump model entirely (the compact catalogue was
+NOT the fix - it still fragmented across history chats):
+
+- `catalogue/COMMANDS.md` (NEW, repo root): the full command catalogue in ONE
+  canonical file - all 37 commands (28 roblox + 9 blender) with full
+  descriptions, complete parameter specs (types, REQUIRED, enums, array item
+  shapes) and the tested TOOL_NOTES. Generated 2026-10-27 from the live
+  bridge's tools list, merged with core/config.js TOOL_NOTES.
+- `core/config.js` (buildSystemPrompt): the first-loaded directive now
+  carries the pointer - the catalogue lives in that one repo file; the first
+  `list_commands` result IS the pull; it is never sent again.
+- `core/main.js`: `pullCatalogue()` fetches the file once per session via the
+  background worker (prefetch fired at session start). The first
+  `list_commands` returns the pulled file as a single result; every later
+  call returns only a confirmation stub. A failed pull returns an explicit
+  ERROR - no silent fallback to any locally formatted dump.
+- `background.js`: new `fetch_catalogue` message (20s timeout, no-store).
+- `manifest.json`: host_permissions += https://raw.githubusercontent.com/*
