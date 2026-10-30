@@ -70,15 +70,3 @@ NOT the fix - it still fragmented across history chats):
   ERROR - no silent fallback to any locally formatted dump.
 - `background.js`: new `fetch_catalogue` message (20s timeout, no-store).
 - `manifest.json`: host_permissions += https://raw.githubusercontent.com/*
-
-## Patch #5 — persistent memory: OscarMCP server + startup recall (Juno, 2026-10-30, Oscar's order)
-Why: the catalogue pull (Patch #4) fixed command knowledge, but Oscar-level memory — his rules, decisions, designs, setup state — had no home. The Hy-Memory stack was designed inside a Meta AI chat ("Setting up persistent memory", 2026-10-30) and never built, so the design existed only in that chat and Oscar had to re-open history chats by hand to reload context into every new session.
-Change (memory/, NEW): the stack, built from Oscar's design on the real Tencent Hy-Memory framework (pip `hy-memory`, Chroma + Kuzu, supersedes chains):
-- `memory/memory_stack.py` — MCP stdio server "OscarMCP": memory_recall / memory_remember / memory_correct / memory_forget / memory_list / memory_health. `--healthcheck` self-test. Store at ~/juno/memory (JUNO_MEMORY_DIR), survives reboots.
-- `memory/juno_bridge_integration.py` — JunoMemoryBridge.before_answer(query) from the design, so VoidMind reads/writes the SAME store.
-- `memory/_memenv.py` — one env bootstrap for both: writer + embedder are local Ollama (OpenAI-compatible endpoint). Writer ships as llama3.1:8b (present on the OMEN); swapping JUNO_MEMORY_WRITER to the Hy-Memory-30B-A3B GGUF after its pull is a config change, not a rebuild.
-- `memory/seed.jsonl` + `seed_memories.py` — Juno's verified standing facts, seeded once at deploy.
-Change (config.json): third MCP server `memory` (bare .py command, runs under the bridge's own interpreter like the Studio launcher).
-Change (core/config.js): new PERSISTENT MEMORY directive section + the startup sequence is now list_commands THEN memory_recall, both loaded once, then the one-sentence ready reply. Slash words /remember /correct /forget map to the tools.
-Change (catalogue/COMMANDS.md): memory server section appended (hand-maintained, sourced from memory_stack.py).
-Deployment: bridge autostarts at logon under pythonw (Scheduled Task JunoZeroScriptBridge — no console window, per Oscar's light sensitivity); the Desktop start.bat ritual is retired. Edge-registered extension copy deployed byte-identical to this commit.

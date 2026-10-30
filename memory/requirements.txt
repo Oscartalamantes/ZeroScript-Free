@@ -1,3 +1,0 @@
-hy-memory[all]
-mcp<2
-python-dotenv

@@ -1,1 +1,1 @@
-{"mcpServers":{"blender":{"args":["mcp-for-blender"],"command":"uvx"},"memory":{"args":[],"command":"memory/memory_stack.py"},"roblox":{"args":[],"command":"launch_studio_mcp.py"}}}
+{"mcpServers":{"blender":{"args":["mcp-for-blender"],"command":"uvx"},"roblox":{"args":[],"command":"launch_studio_mcp.py"}}}
