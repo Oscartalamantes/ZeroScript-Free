@@ -926,3 +926,60 @@ Parameters:
 - `resolution` (string, optional) [default: "1k"]
 - `file_format` (any, optional) [default: null]
 - `user_prompt` (string, optional) [default: ""]
+
+## Server: memory (OscarMCP) — 6 commands
+
+Oscar's persistent-memory store (Hy-Memory stack, local to his machine).
+Added 2026-10-30 (Patch #5) — hand-maintained section; the sections above
+were generated from the live bridge, this one is generated from
+memory/memory_stack.py in this repo, which is the server itself.
+
+### memory_recall
+
+Load Oscar's persistent memory. Call ONCE at session start with no query
+for the standing digest (profile, facts, open intentions). Pass a query to
+search memory for a specific topic before answering from assumption.
+
+Parameters:
+- `query` (string, optional) — Topic to search; empty = the startup digest.
+
+### memory_remember
+
+Persist one durable fact about Oscar, his work, or a decision. Only
+verified, lasting facts — never guesses, never transient steps. The writer
+model extracts and reconciles it against existing memory.
+
+Parameters:
+- `text` (string, REQUIRED) — The fact to persist.
+- `source` (string, optional) [default: "zeroscript"] — Who is writing.
+
+### memory_correct
+
+Replace the content of one memory (by id from memory_recall / memory_list)
+when Oscar corrects it. The supersedes chain keeps the old version
+traceable.
+
+Parameters:
+- `memory_id` (string, REQUIRED)
+- `new_text` (string, REQUIRED)
+
+### memory_forget
+
+Delete one memory by id, at Oscar's word or when it is proven wrong and
+he says to drop it.
+
+Parameters:
+- `memory_id` (string, REQUIRED)
+
+### memory_list
+
+List recent memories with their ids (for correct/forget).
+
+Parameters:
+- `limit` (integer, optional) [default: 20]
+
+### memory_health
+
+Memory stack status: store path, writer/embedder models, memory count.
+
+Parameters: none.
